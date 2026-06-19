@@ -20,6 +20,10 @@ ENV/
 pip-log.txt
 pip-delete-this-directory.txt
 
+# Frontend build output
+frontend/dist/
+frontend/node_modules/
+
 # Project data (local only)
 backend/data/drafts/*
 !backend/data/drafts/.gitkeep
