@@ -2,45 +2,72 @@
 RAG 知识库服务
 
 职责：
-    - 文章向量化（DeepSeek Embedding API）
+    - 文章向量化（本地 sentence-transformers 模型）
     - Chroma 持久化存储
     - 检索相关文章上下文
     - 注入 chat service 的 RAG context
 
 依赖：
     - chromadb（嵌入式向量数据库）
-    - DeepSeek Embedding API
+    - sentence-transformers（本地向量模型 all-MiniLM-L6-v2，384维）
     - ArticleLoader（获取文章全文）
 """
 
 import os
 import logging
-from openai import OpenAI
+import threading
 
 logger = logging.getLogger("rag")
 
-
 # ---------------------------------------------------------------------------
-# Chroma + Embedding
+# 本地 SentenceTransformer 模型
 # ---------------------------------------------------------------------------
 
-def _get_embedding_client() -> OpenAI:
-    return OpenAI(
-        api_key=os.getenv("DEEPSEEK_API_KEY"),
-        base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
-    )
+_MODEL_NAME = "all-MiniLM-L6-v2"
+_MODEL_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "models")
+os.makedirs(_MODEL_DIR, exist_ok=True)
+
+_model = None
+_model_lock = threading.Lock()
+_model_available = True  # 设为 False 表示模型不可用
+
+
+def _get_model():
+    """延迟加载 SentenceTransformer 模型（线程安全）。"""
+    global _model, _model_available
+    if _model is not None:
+        return _model
+    with _model_lock:
+        if _model is not None:
+            return _model
+        try:
+            from sentence_transformers import SentenceTransformer
+            logger.info(f"加载本地 embedding 模型: {_MODEL_NAME}")
+            _model = SentenceTransformer(
+                _MODEL_NAME,
+                cache_folder=_MODEL_DIR,
+            )
+            logger.info(f"模型加载完成，维度: {_model.get_sentence_embedding_dimension()}")
+            return _model
+        except Exception as e:
+            _model_available = False
+            logger.warning(f"模型加载失败，RAG 将降级: {e}")
+            return None
 
 
 def _embed_texts(texts: list[str]) -> list[list[float]]:
-    """调用 DeepSeek Embedding 批量向量化。"""
+    """使用本地 SentenceTransformer 批量向量化。"""
     if not texts:
         return []
-    client = _get_embedding_client()
-    resp = client.embeddings.create(
-        model="deepseek-chat",
-        input=texts,
-    )
-    return [d.embedding for d in resp.data]
+    model = _get_model()
+    if model is None:
+        raise RuntimeError("Embedding 模型不可用")
+    embeddings = model.encode(texts, show_progress_bar=False)
+    return embeddings.tolist()
+
+def is_embedding_available() -> bool:
+    """返回 embedding 模型是否可用（用于外部判断是否降级）。"""
+    return _model_available
 
 
 class RAGService:

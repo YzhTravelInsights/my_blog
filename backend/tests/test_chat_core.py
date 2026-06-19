@@ -72,17 +72,22 @@ def run_tests():
     os.environ["DEEPSEEK_API_KEY"] = "sk-test-key"
     os.environ["DEEPSEEK_BASE_URL"] = "https://api.deepseek.com"
 
-    # 全局 mock embedding + chat API
-    embed_patcher = patch("modules.chat.rag._embed_texts",
-                          side_effect=lambda texts: [[hash(t+str(j))%100/100 for j in range(8)] for t in texts])
+    # 全局 mock SentenceTransformer + chat API
+    import numpy as np
+    from modules.chat import rag as rag_module
+    class MockModel:
+        def encode(self, texts, show_progress_bar=False):
+            return np.array([[hash(t+str(j))%100/100 for j in range(384)] for t in texts])
+        def get_sentence_embedding_dimension(self): return 384
+    model_patcher = patch.object(rag_module, "_get_model", return_value=MockModel())
     chat_patcher = patch("modules.chat.service._get_client")
-    embed_patcher.start()
+    model_patcher.start()
     mock_cli = chat_patcher.start()
     mock_cli.return_value.chat.completions.create = mock_chat_success
 
     test_app = app_module.create_app()
     test_app.config["TESTING"] = True
-    test_app.extensions["memory_service"]._embed = lambda t: [[hash(t+str(j))%100/100 for j in range(8)]][0]
+    test_app.extensions["memory_service"]._embed = lambda t: MockModel().encode([t])[0].tolist()
     client = test_app.test_client()
 
     # ========================================================================

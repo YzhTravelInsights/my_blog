@@ -46,8 +46,10 @@ def check(name: str, condition: bool, detail: str = ""):
 
 
 # Mock helpers
-def mock_embed(texts):
-    return [[hash(t + str(j)) % 100 / 100 for j in range(8)] for t in texts]
+def mock_embed_single(text):
+    """单字符串 embed（384维伪向量）。"""
+    import numpy as np
+    return [hash(text + str(j)) % 100 / 100 for j in range(384)]
 
 
 def mock_chat_success(messages, **kw):
@@ -68,10 +70,16 @@ def run_tests():
     os.environ["OWNER_SECRET"] = "my-secret-token"
     OWNER_TOKEN = "Bearer my-secret-token"
 
-    # 全局 mock，整个测试期间生效
-    embed_patcher = patch("modules.chat.rag._embed_texts", side_effect=mock_embed)
+    # 全局 mock SentenceTransformer + chat API
+    import numpy as np
+    from modules.chat import rag as rag_module
+    class MockModel:
+        def encode(self, texts, show_progress_bar=False):
+            return np.array([[hash(t+str(j))%100/100 for j in range(384)] for t in texts])
+        def get_sentence_embedding_dimension(self): return 384
+    model_patcher = patch.object(rag_module, "_get_model", return_value=MockModel())
     chat_patcher = patch("modules.chat.service._get_client")
-    embed_patcher.start()
+    model_patcher.start()
     mock_cli = chat_patcher.start()
     mock_cli.return_value.chat.completions.create = mock_chat_success
 
@@ -79,7 +87,7 @@ def run_tests():
     test_app.config["TESTING"] = True
 
     # MemoryService 持有单字符串 embed 函数
-    test_app.extensions["memory_service"]._embed = lambda t: mock_embed([t])[0]
+    test_app.extensions["memory_service"]._embed = lambda t: MockModel().encode([t])[0].tolist()
 
     client = test_app.test_client()
 
@@ -117,8 +125,12 @@ def run_tests():
     # ========================================================================
     print("\n[O4] POST /api/chat/owner — 正常对话")
     # ========================================================================
+    import numpy as np
+    class MM:
+        def encode(self, texts, **_): return np.array([[hash(t+str(j))%100/100 for j in range(384)] for t in texts])
+        def get_sentence_embedding_dimension(self): return 384
     with patch("modules.chat.service._get_client") as mock_cli, \
-         patch("modules.chat.rag._embed_texts", side_effect=mock_embed):
+         patch.object(rag_module, "_get_model", return_value=MM()):
         mock_cli.return_value.chat.completions.create = mock_chat_success
         resp = client.post(
             "/api/chat/owner",
@@ -193,7 +205,7 @@ def run_tests():
         store.add(
             f"mem_{i}",
             f"测试记忆 {i}",
-            mock_embed([f"测试记忆 {i}"])[0],
+            mock_embed_single(f"测试记忆 {i}"),
             {"idx": i},
         )
     check("超过500条", store.count() == 505)
@@ -238,7 +250,7 @@ def run_tests():
     check("无 affinity", "affinity" not in resp.get_json()["data"])
 
     # 停止全局 mock
-    embed_patcher.stop()
+    model_patcher.stop()
     chat_patcher.stop()
 
     print(f"\n{'='*50}")

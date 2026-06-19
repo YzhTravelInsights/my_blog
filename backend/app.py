@@ -46,14 +46,22 @@ def create_app() -> Flask:
     loader = ArticleLoader(ARTICLES_DIR, about_file=ABOUT_FILE)
     app.extensions["article_loader"] = loader
 
-    # 初始化 RAG 知识库（embedding 不可用时优雅跳过）
+    # 初始化 RAG 知识库（本地 embedding 模型，不可用时优雅降级）
+    from modules.chat.rag import is_embedding_available, _get_model as _preload_model
+    rag = RAGService(persist_dir=CHROMA_PERSIST_DIR)
     try:
-        rag = RAGService(persist_dir=CHROMA_PERSIST_DIR)
-        all_data = loader.load_all()
-        rag.index_articles(all_data["articles"])
-        app.extensions["rag_service"] = rag
-    except Exception:
-        app.extensions["rag_service"] = RAGService(persist_dir=CHROMA_PERSIST_DIR)
+        # 预热模型（首次下载 ~80MB，后续秒加载）
+        _preload_model()
+        if is_embedding_available():
+            all_data = loader.load_all()
+            rag.index_articles(all_data["articles"])
+        else:
+            logger = __import__("logging").getLogger(__name__)
+            logger.warning("Embedding 模型不可用，RAG 索引跳过")
+    except Exception as e:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(f"RAG 初始化失败: {e}")
+    app.extensions["rag_service"] = rag
 
     # 初始化好感度
     affinity = AffinityService(DATABASE_PATH)
