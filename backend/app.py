@@ -9,6 +9,9 @@ import sys
 # 确保 backend 目录在 Python 路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+
 from flask import Flask
 from flask_cors import CORS
 
@@ -17,6 +20,7 @@ from modules.articles.loader import ArticleLoader
 from modules.articles.routes import articles_bp
 from modules.comments.models import init_db
 from modules.comments.routes import comments_bp
+from modules.chat.routes import chat_bp
 
 
 def create_app() -> Flask:
@@ -37,6 +41,7 @@ def create_app() -> Flask:
     # 注册 Blueprint
     app.register_blueprint(articles_bp)
     app.register_blueprint(comments_bp)
+    app.register_blueprint(chat_bp)
 
     @app.route("/")
     def index():
