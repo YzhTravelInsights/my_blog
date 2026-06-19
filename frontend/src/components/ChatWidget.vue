@@ -9,7 +9,7 @@
     <!-- 头部 -->
     <div class="flex items-center justify-between px-4 py-3 bg-blue-500 text-white">
       <div class="flex items-center gap-2">
-        <Live2DCharacter :emotion="lastEmotion" class="scale-50 -my-6" />
+        <Live2DCharacter :emotion="lastEmotion" />
         <span class="font-semibold text-sm">萤宝</span>
       </div>
       <div class="flex items-center gap-2">

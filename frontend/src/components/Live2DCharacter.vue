@@ -25,7 +25,7 @@ const props = defineProps({
 
 defineEmits(['click', 'loaded'])
 
-const avatarSrc = computed(() => props.modelPath ? props.modelPath : '/firefly-avatar.png')
+const avatarSrc = computed(() => '/firefly-avatar.png')
 
 const emotionIcon = computed(() => ({
   happy: '✨', thinking: '💭', caring: '💛', surprised: '💫',
@@ -42,10 +42,11 @@ const emotionClass = computed(() => `emotion-${props.emotion}`)
 <style scoped>
 .firefly-avatar {
   position: relative;
-  width: 64px; height: 64px;
+  width: 32px; height: 32px;
   border-radius: 50%;
   overflow: hidden;
   cursor: pointer;
+  flex-shrink: 0;
   transition: transform 0.3s, box-shadow 0.3s;
   box-shadow: 0 0 0 2px #93c5fd;
   user-select: none;
