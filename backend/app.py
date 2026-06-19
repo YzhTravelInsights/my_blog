@@ -15,12 +15,13 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 from flask import Flask
 from flask_cors import CORS
 
-from config import ARTICLES_DIR, ABOUT_FILE, DATABASE_PATH
+from config import ARTICLES_DIR, ABOUT_FILE, DATABASE_PATH, CHROMA_PERSIST_DIR
 from modules.articles.loader import ArticleLoader
 from modules.articles.routes import articles_bp
 from modules.comments.models import init_db
 from modules.comments.routes import comments_bp
 from modules.chat.routes import chat_bp
+from modules.chat.rag import RAGService
 
 
 def create_app() -> Flask:
@@ -37,6 +38,12 @@ def create_app() -> Flask:
     # 注册 ArticleLoader 为扩展单例
     loader = ArticleLoader(ARTICLES_DIR, about_file=ABOUT_FILE)
     app.extensions["article_loader"] = loader
+
+    # 初始化 RAG 知识库
+    rag = RAGService(persist_dir=CHROMA_PERSIST_DIR)
+    all_data = loader.load_all()
+    rag.index_articles(all_data["articles"])
+    app.extensions["rag_service"] = rag
 
     # 注册 Blueprint
     app.register_blueprint(articles_bp)

@@ -61,6 +61,7 @@ def chat(
     history: list[dict],
     session_type: str = "guest",
     mode: str = "public",
+    rag_context: str = "",
 ) -> dict:
     """
     执行一轮对话。
@@ -71,16 +72,17 @@ def chat(
         history:      历史消息 [{role, content}, ...]
         session_type: "guest" | "owner"
         mode:         "public" | "owner"
+        rag_context:  RAG 检索结果文本（可选）
 
     返回:
-        { reply, emotion, mode, fallback (bool, 仅失败时 true) }
+        { reply, emotion, mode, fallback, sources }
     """
     # 截断历史（仅 guest 模式）
     if session_type == "guest" and len(history) > GUEST_HISTORY_LIMIT:
         history = history[-GUEST_HISTORY_LIMIT:]
 
     # 构建消息列表
-    system_prompt = build_system_prompt(mode=mode)
+    system_prompt = build_system_prompt(mode=mode, rag_context=rag_context)
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend(history)
     messages.append({"role": "user", "content": message})

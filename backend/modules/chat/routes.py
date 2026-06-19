@@ -6,7 +6,7 @@ AI 对话 API Blueprint
     POST /api/chat/owner — 主人聊天（chat-owner 模块扩展）
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from .service import chat
 
 chat_bp = Blueprint("chat", __name__)
@@ -45,12 +45,25 @@ def public_chat():
         if isinstance(h, dict) and "role" in h and "content" in h
     ]
 
+    # RAG 检索
+    rag = current_app.extensions.get("rag_service")
+    rag_context = rag.build_context(message) if rag else ""
+
     result = chat(
         message=message,
         session_id=session_id,
         history=history,
         session_type=session_type,
         mode="public",
+        rag_context=rag_context,
     )
+
+    # 追加 sources（RAG 引用）
+    if rag:
+        hits = rag.search(message, k=3)
+        result["sources"] = [
+            {"article_id": h["article_id"], "title": h["title"], "relevance": h["relevance"]}
+            for h in hits
+        ]
 
     return _ok(result)

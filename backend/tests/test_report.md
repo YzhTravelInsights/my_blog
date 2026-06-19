@@ -11,99 +11,86 @@
 | article-loader | 29 | 0 | 100% |
 | article-api | 24 | 0 | 100% |
 | comments | 37 | 0 | 100% |
-| chat-core | **32** | **0** | **100%** |
-| **合计** | **122** | **0** | **100%** |
+| chat-core | 32 | 0 | 100% |
+| chat-rag | **23** | **0** | **100%** |
+| **合计** | **145** | **0** | **100%** |
 
 ---
 
-## 模块四：chat-core — 测试明细
+## 模块五：chat-rag — 测试明细
 
-### C1 prompt_builder 基础提示词
-
-| # | 测试点 | 结果 |
-|---|--------|------|
-| 1 | 含'流萤'角色名 | PASS |
-| 2 | 含'开拓者'称呼 | PASS |
-| 3 | 含'公共助手'模式提示 | PASS |
-| 4 | owner 模式可注入 RAG 上下文 | PASS |
-| 5 | owner 模式可注入好感度 | PASS |
-
-### C2 POST /api/chat 正常对话
+### R1 RAGService 初始化
 
 | # | 测试点 | 结果 |
 |---|--------|------|
-| 6 | HTTP 200 | PASS |
-| 7 | code=0 | PASS |
-| 8 | reply 不为空 | PASS |
-| 9 | mode=public | PASS |
-| 10 | emotion 字段存在 | PASS |
+| 1 | RAGService 创建成功 | PASS |
+| 2 | persist_dir 正确 | PASS |
 
-### C3 空消息校验
+### R2 首次索引
 
 | # | 测试点 | 结果 |
 |---|--------|------|
-| 11 | 空字符串 → 400 | PASS |
-| 12 | 纯空格 → 400 | PASS |
-| 13 | 无 message 字段 → 400 | PASS |
+| 3 | 索引 3 篇文章 | PASS |
 
-### C4 超长消息校验
+### R3 跳过已索引
 
 | # | 测试点 | 结果 |
 |---|--------|------|
-| 14 | 2001 字 → 400 | PASS |
-| 15 | 2000 字 → 通过 | PASS |
+| 4 | 二次索引不重复调用 embedding | PASS |
+| 5 | 索引数仍然为 3 | PASS |
 
-### C5 guest 截断历史
-
-| # | 测试点 | 结果 |
-|---|--------|------|
-| 16 | guest 模式 15 条历史正常处理 | PASS |
-
-### C6 owner 历史不截断
+### R4 清空重建
 
 | # | 测试点 | 结果 |
 |---|--------|------|
-| 17 | owner 模式 15 条历史正常处理 | PASS |
+| 6 | force=True 重新索引 3 篇 | PASS |
 
-### C7 history 格式清洗
-
-| # | 测试点 | 结果 |
-|---|--------|------|
-| 18 | 含非法元素的 history → 清洗后 200 | PASS |
-
-### C8 故障回退
+### R5 检索相关文章
 
 | # | 测试点 | 结果 |
 |---|--------|------|
-| 19 | 故障时 HTTP 200（优雅降级） | PASS |
-| 20 | 降级回复含'火萤' | PASS |
-| 21 | fallback=True 标记 | PASS |
+| 7 | search() 返回结果 | PASS |
+| 8 | 结果含 article_id | PASS |
+| 9 | 结果含 title | PASS |
+| 10 | 结果含 relevance | PASS |
 
-### C9 故障日志
-
-| # | 测试点 | 结果 |
-|---|--------|------|
-| 22 | api_error.log 已生成 | PASS |
-
-### C10 响应格式
+### R6 空索引
 
 | # | 测试点 | 结果 |
 |---|--------|------|
-| 23 | 含 code | PASS |
-| 24 | 含 msg | PASS |
-| 25 | 含 data | PASS |
-| 26 | data.reply | PASS |
-| 27 | data.emotion | PASS |
+| 11 | 空索引 search() 返回 [] | PASS |
 
-### C11 emotion 检测
+### R7 上下文构建
 
 | # | 测试点 | 结果 |
 |---|--------|------|
-| 28 | '哈哈' → happy | PASS |
-| 29 | '嘿嘿' → happy | PASS |
-| 30 | '唔' → thinking | PASS |
-| 31 | '没关系' → caring | PASS |
-| 32 | 普通文本 → normal | PASS |
+| 12 | build_context() 含'参考资料'标题 | PASS |
+| 13 | build_context() 含文章标题 | PASS |
+| 14 | 空索引 build_context() 返回 "" | PASS |
+
+### R8 统计
+
+| # | 测试点 | 结果 |
+|---|--------|------|
+| 15 | indexed_articles = 3 | PASS |
+| 16 | persist_dir 正确 | PASS |
+
+### R9 现有 API 不受影响
+
+| # | 测试点 | 结果 |
+|---|--------|------|
+| 17 | 文章列表 200 | PASS |
+| 18 | 文章列表 code=0 | PASS |
+| 19 | 文章详情 200 | PASS |
+| 20 | 关于页 200 | PASS |
+
+### R10 chat 端点返回 sources
+
+| # | 测试点 | 结果 |
+|---|--------|------|
+| 21 | HTTP 200 | PASS |
+| 22 | reply 不为空 | PASS |
+| 23 | 含 sources 字段 | PASS |
 
 ---
 
@@ -114,10 +101,8 @@ python backend/tests/test_article_loader.py
 python backend/tests/test_article_api.py
 python backend/tests/test_comments.py
 python backend/tests/test_chat_core.py
+python backend/tests/test_chat_rag.py
 
-# 真实对话需配置 .env 中的 DEEPSEEK_API_KEY
-python backend/app.py
-curl -X POST http://127.0.0.1:5000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message":"你好流萤","session_id":"test","history":[]}'
+# 重建索引
+python backend/manage.py reindex
 ```
