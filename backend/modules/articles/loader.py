@@ -71,8 +71,9 @@ class ArticleLoader:
         - reload() 强制刷新
     """
 
-    def __init__(self, articles_dir: str):
+    def __init__(self, articles_dir: str, about_file: str | None = None):
         self._dir = articles_dir
+        self._about_file = about_file
         self._articles: list[dict] = []
         self._by_id: dict[str, dict] = {}
         self._categories: list[str] = []
@@ -129,6 +130,24 @@ class ArticleLoader:
             "total_articles": len(self._articles),
             "categories": len(self._categories),
             "tags": len(self._tags),
+        }
+
+    def get_about(self) -> dict:
+        """
+        加载关于页。
+        从 data/about.md 读取 frontmatter + Markdown，无缓存（改动少）。
+        """
+        if not self._about_file or not os.path.isfile(self._about_file):
+            return {"name": "", "avatar": "", "content": ""}
+
+        with open(self._about_file, "r", encoding="utf-8") as f:
+            raw = f.read()
+
+        meta, body = _parse_frontmatter(raw)
+        return {
+            "name": meta.get("name", ""),
+            "avatar": meta.get("avatar", ""),
+            "content": body.strip(),
         }
 
     # ---- 内部实现 ----
