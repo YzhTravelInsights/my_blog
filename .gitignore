@@ -20,6 +20,14 @@ ENV/
 pip-log.txt
 pip-delete-this-directory.txt
 
+# Project data (local only)
+backend/data/drafts/*
+!backend/data/drafts/.gitkeep
+backend/data/blog.db
+backend/data/chroma/
+backend/.env
+backend/logs/
+
 # ===========================
 # Node.js
 # ===========================
