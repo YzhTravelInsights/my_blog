@@ -12,9 +12,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask
 from flask_cors import CORS
 
-from config import ARTICLES_DIR, ABOUT_FILE
+from config import ARTICLES_DIR, ABOUT_FILE, DATABASE_PATH
 from modules.articles.loader import ArticleLoader
 from modules.articles.routes import articles_bp
+from modules.comments.models import init_db
+from modules.comments.routes import comments_bp
 
 
 def create_app() -> Flask:
@@ -23,12 +25,18 @@ def create_app() -> Flask:
     # CORS 允许前端开发地址
     CORS(app, resources={r"/api/*": {"origins": "*"}})
 
+    app.config["DATABASE_PATH"] = DATABASE_PATH
+
+    # 初始化数据库表
+    init_db(DATABASE_PATH)
+
     # 注册 ArticleLoader 为扩展单例
     loader = ArticleLoader(ARTICLES_DIR, about_file=ABOUT_FILE)
     app.extensions["article_loader"] = loader
 
     # 注册 Blueprint
     app.register_blueprint(articles_bp)
+    app.register_blueprint(comments_bp)
 
     @app.route("/")
     def index():
