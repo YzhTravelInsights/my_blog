@@ -24,6 +24,9 @@ pip-delete-this-directory.txt
 frontend/dist/
 frontend/node_modules/
 
+# ML models (downloaded at runtime)
+backend/models/
+
 # Project data (local only)
 backend/data/drafts/*
 !backend/data/drafts/.gitkeep
