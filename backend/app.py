@@ -21,7 +21,12 @@ from modules.articles.routes import articles_bp
 from modules.comments.models import init_db
 from modules.comments.routes import comments_bp
 from modules.chat.routes import chat_bp
-from modules.chat.rag import RAGService
+from modules.chat.rag import RAGService, _embed_texts
+from modules.affinity.models import init_table as init_affinity
+from modules.affinity.service import AffinityService
+from modules.memory.service import MemoryService
+from modules.personality.models import init_table as init_personality
+from modules.personality.service import PersonalityService
 
 
 def create_app() -> Flask:
@@ -34,6 +39,8 @@ def create_app() -> Flask:
 
     # 初始化数据库表
     init_db(DATABASE_PATH)
+    init_affinity(DATABASE_PATH)
+    init_personality(DATABASE_PATH)
 
     # 注册 ArticleLoader 为扩展单例
     loader = ArticleLoader(ARTICLES_DIR, about_file=ABOUT_FILE)
@@ -44,6 +51,24 @@ def create_app() -> Flask:
     all_data = loader.load_all()
     rag.index_articles(all_data["articles"])
     app.extensions["rag_service"] = rag
+
+    # 初始化好感度
+    affinity = AffinityService(DATABASE_PATH)
+    app.extensions["affinity_service"] = affinity
+
+    # 初始化长期记忆（单字符串 → 列表适配）
+    def _single_embed(text: str) -> list[float]:
+        return _embed_texts([text])[0]
+
+    memory = MemoryService(
+        persist_dir=os.path.join(CHROMA_PERSIST_DIR, "memories"),
+        embed_fn=_single_embed,
+    )
+    app.extensions["memory_service"] = memory
+
+    # 初始化人格演化
+    personality = PersonalityService(DATABASE_PATH)
+    app.extensions["personality_service"] = personality
 
     # 注册 Blueprint
     app.register_blueprint(articles_bp)

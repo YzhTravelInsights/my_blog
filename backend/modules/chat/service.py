@@ -35,7 +35,7 @@ def _get_client() -> OpenAI:
 # 故障回退
 # ---------------------------------------------------------------------------
 
-FALLBACK_REPLY = "火萤今晚似乎有点累了，暂时没办法回应你……晚点再来找我好吗？"
+FALLBACK_REPLY = "萤宝今晚似乎有点累了，暂时没办法回应你……晚点再来找我好吗？"
 
 
 def _log_error(error_type: str, elapsed_ms: float, session_id: str):
@@ -62,27 +62,39 @@ def chat(
     session_type: str = "guest",
     mode: str = "public",
     rag_context: str = "",
+    affinity_context: str = "",
+    memory_context: str = "",
+    personality_context: str = "",
 ) -> dict:
     """
     执行一轮对话。
 
     参数:
-        message:      用户最新消息
-        session_id:   会话标识（用于日志）
-        history:      历史消息 [{role, content}, ...]
-        session_type: "guest" | "owner"
-        mode:         "public" | "owner"
-        rag_context:  RAG 检索结果文本（可选）
+        message:            用户最新消息
+        session_id:         会话标识
+        history:            历史消息 [{role, content}, ...]
+        session_type:       "guest" | "owner"
+        mode:               "public" | "owner"
+        rag_context:        RAG 检索结果文本
+        affinity_context:   好感度提示词片段（仅 owner）
+        memory_context:     记忆上下文（仅 owner）
+        personality_context: 人格上下文（仅 owner）
 
     返回:
-        { reply, emotion, mode, fallback, sources }
+        { reply, emotion, mode, fallback?, sources? }
     """
     # 截断历史（仅 guest 模式）
     if session_type == "guest" and len(history) > GUEST_HISTORY_LIMIT:
         history = history[-GUEST_HISTORY_LIMIT:]
 
     # 构建消息列表
-    system_prompt = build_system_prompt(mode=mode, rag_context=rag_context)
+    system_prompt = build_system_prompt(
+        mode=mode,
+        rag_context=rag_context,
+        affinity_context=affinity_context,
+        memory_context=memory_context,
+        personality_context=personality_context,
+    )
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend(history)
     messages.append({"role": "user", "content": message})
@@ -124,6 +136,41 @@ def chat(
 # ---------------------------------------------------------------------------
 # 情绪检测（简单规则，后续可升级为 DeepSeek 输出）
 # ---------------------------------------------------------------------------
+
+def judge_memory(user_msg: str, assistant_reply: str) -> dict:
+    """调用 DeepSeek 判断是否值得存入长期记忆。"""
+    try:
+        import json
+        client = _get_client()
+        resp = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": "判断对话是否值得长期记忆。返回JSON: {\"memorable\": bool, \"text\": \"记忆摘要\", \"importance\": 0-1}"},
+                {"role": "user", "content": f"用户: {user_msg}\n流萤: {assistant_reply}"},
+            ],
+            max_tokens=150, temperature=0.3,
+        )
+        return json.loads(resp.choices[0].message.content)
+    except Exception:
+        return {"memorable": False, "text": "", "importance": 0}
+
+
+def judge_impression(user_msg: str, assistant_reply: str) -> str | None:
+    """调用 DeepSeek 生成人格印象。"""
+    try:
+        client = _get_client()
+        resp = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": "基于对话生成对用户的印象，一句话。格式如'开拓者今天...'"},
+                {"role": "user", "content": f"用户: {user_msg}\n流萤: {assistant_reply}"},
+            ],
+            max_tokens=80, temperature=0.5,
+        )
+        return resp.choices[0].message.content.strip()
+    except Exception:
+        return None
+
 
 def _detect_emotion(text: str) -> str:
     """简单关键词匹配，后续可让 DeepSeek 直接返回 emotion 字段。"""

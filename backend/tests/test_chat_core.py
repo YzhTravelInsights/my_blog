@@ -72,8 +72,17 @@ def run_tests():
     os.environ["DEEPSEEK_API_KEY"] = "sk-test-key"
     os.environ["DEEPSEEK_BASE_URL"] = "https://api.deepseek.com"
 
+    # 全局 mock embedding + chat API
+    embed_patcher = patch("modules.chat.rag._embed_texts",
+                          side_effect=lambda texts: [[hash(t+str(j))%100/100 for j in range(8)] for t in texts])
+    chat_patcher = patch("modules.chat.service._get_client")
+    embed_patcher.start()
+    mock_cli = chat_patcher.start()
+    mock_cli.return_value.chat.completions.create = mock_chat_success
+
     test_app = app_module.create_app()
     test_app.config["TESTING"] = True
+    test_app.extensions["memory_service"]._embed = lambda t: [[hash(t+str(j))%100/100 for j in range(8)]][0]
     client = test_app.test_client()
 
     # ========================================================================
@@ -84,6 +93,10 @@ def run_tests():
     prompt = build_system_prompt(mode="public")
     check("含'流萤'", "流萤" in prompt)
     check("含'开拓者'", "开拓者" in prompt)
+    check("含'萤宝'自称", "萤宝" in prompt)
+    check("含'格拉默铁骑'", "格拉默铁骑" in prompt)
+    check("含'萨姆'", "萨姆" in prompt)
+    check("含'失熵'", "失熵" in prompt)
     check("含'公共助手'", "公共助手" in prompt)
 
     prompt_owner = build_system_prompt(
@@ -197,7 +210,7 @@ def run_tests():
 
     data = resp.get_json()
     check("故障时 HTTP 200（优雅降级）", resp.status_code == 200)
-    check("降级回复含'火萤'", "火萤" in data["data"]["reply"])
+    check("降级回复含'萤宝'", "萤宝" in data["data"]["reply"])
     check("fallback=True", data["data"].get("fallback") is True)
 
     # ========================================================================
