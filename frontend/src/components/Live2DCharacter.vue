@@ -1,16 +1,17 @@
 <!--
-  Live2D 虚拟人物组件 — 占位版本 (P2)
+  萤宝虚拟人物组件
+
+  当前：静态图片 + CSS 动画（临时版本）
+  后续：替换为 pixi-live2d-display 渲染 .model3.json（见 文档/Live2D模型接入指南.md）
 
   Props:
-    emotion: 'normal' | 'happy' | 'thinking' | 'caring' | 'surprised'
-    modelPath: 模型文件路径（暂未使用）
-
-  当前实现：根据 emotion 显示对应 CSS 动画 emoji
-  后续接入：替换为 pixi-live2d-display 渲染 .model3.json
+    emotion - 'normal' | 'happy' | 'thinking' | 'caring' | 'surprised'
+    modelPath - 模型文件路径（暂未使用，预留接口）
 -->
 <template>
-  <div class="live2d-placeholder" :class="emotionClass" :title="emotionLabel">
-    <span class="text-4xl select-none">{{ emoji }}</span>
+  <div class="firefly-avatar" :class="emotionClass" :title="emotionLabel" @click="$emit('click')">
+    <img :src="avatarSrc" alt="萤宝" class="avatar-img" />
+    <div class="emotion-badge" v-if="emotion !== 'normal'">{{ emotionIcon }}</div>
   </div>
 </template>
 
@@ -19,73 +20,73 @@ import { computed } from 'vue'
 
 const props = defineProps({
   emotion: { type: String, default: 'normal' },
-  modelPath: { type: String, default: '' },
+  modelPath: { type: String, default: 'live2d/firefly/firefly.model3.json' },
 })
 
-const emit = defineEmits(['click', 'loaded'])
+defineEmits(['click', 'loaded'])
 
-const emojiMap = {
-  normal: '🌸',
-  happy: '✨',
-  thinking: '💭',
-  caring: '💛',
-  surprised: '💫',
-}
+const avatarSrc = computed(() => props.modelPath ? props.modelPath : '/firefly-avatar.png')
 
-const labelMap = {
-  normal: '萤宝待机中',
-  happy: '萤宝很开心',
-  thinking: '萤宝思考中',
-  caring: '萤宝关心你',
-  surprised: '萤宝很惊讶',
-}
+const emotionIcon = computed(() => ({
+  happy: '✨', thinking: '💭', caring: '💛', surprised: '💫',
+}[props.emotion] || ''))
 
-const emoji = computed(() => emojiMap[props.emotion] || '🌸')
-const emotionLabel = computed(() => labelMap[props.emotion] || '萤宝')
+const emotionLabel = computed(() => ({
+  normal: '萤宝待机中', happy: '萤宝很开心', thinking: '萤宝思考中',
+  caring: '萤宝关心你', surprised: '萤宝很惊讶',
+}[props.emotion] || '萤宝'))
 
 const emotionClass = computed(() => `emotion-${props.emotion}`)
 </script>
 
 <style scoped>
-.live2d-placeholder {
-  width: 64px;
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.firefly-avatar {
+  position: relative;
+  width: 64px; height: 64px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #dbeafe, #ede9fe);
-  transition: transform 0.3s, background 0.3s;
+  overflow: hidden;
   cursor: pointer;
+  transition: transform 0.3s, box-shadow 0.3s;
+  box-shadow: 0 0 0 2px #93c5fd;
   user-select: none;
 }
+.avatar-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.emotion-badge {
+  position: absolute;
+  bottom: -2px; right: -2px;
+  font-size: 16px;
+  line-height: 1;
+}
+/* 动画 */
 .emotion-normal { animation: breathe 3s ease-in-out infinite; }
-.emotion-happy { animation: bounce 0.6s ease-in-out infinite; background: linear-gradient(135deg, #fef3c7, #fce7f3); }
-.emotion-thinking { animation: think 1.5s ease-in-out infinite; background: linear-gradient(135deg, #e0e7ff, #ede9fe); }
-.emotion-caring { animation: pulse 1s ease-in-out infinite; background: linear-gradient(135deg, #fce7f3, #fef3c7); }
-.emotion-surprised { animation: surprise 0.4s ease-in-out 2; background: linear-gradient(135deg, #fef3c7, #dbeafe); }
-
+.emotion-happy { animation: bounce 0.6s ease-in-out infinite; box-shadow: 0 0 8px 3px #fbbf24; }
+.emotion-thinking { animation: think 1.5s ease-in-out infinite; box-shadow: 0 0 8px 3px #a78bfa; }
+.emotion-caring { animation: pulse 1s ease-in-out infinite; box-shadow: 0 0 8px 3px #f472b6; }
+.emotion-surprised { animation: surprise 0.4s ease-in-out 2; box-shadow: 0 0 8px 3px #60a5fa; }
 @keyframes breathe {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.08); }
 }
 @keyframes bounce {
   0%, 100% { transform: translateY(0) scale(1); }
-  30% { transform: translateY(-8px) scale(1.05); }
+  30% { transform: translateY(-6px) scale(1.05); }
   50% { transform: translateY(0) scale(1); }
-  70% { transform: translateY(-4px) scale(1.02); }
+  70% { transform: translateY(-3px) scale(1.02); }
 }
 @keyframes think {
   0%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(-5deg); }
-  75% { transform: rotate(5deg); }
+  25% { transform: rotate(-4deg); }
+  75% { transform: rotate(4deg); }
 }
 @keyframes pulse {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.12); }
+  50% { transform: scale(1.1); }
 }
 @keyframes surprise {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.25); }
+  50% { transform: scale(1.2); }
 }
 </style>
