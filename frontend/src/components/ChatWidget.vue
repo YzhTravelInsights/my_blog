@@ -9,7 +9,7 @@
     <!-- 头部 -->
     <div class="flex items-center justify-between px-4 py-3 bg-blue-500 text-white">
       <div class="flex items-center gap-2">
-        <span class="text-lg">🔆</span>
+        <Live2DCharacter :emotion="lastEmotion" class="scale-50 -my-6" />
         <span class="font-semibold text-sm">萤宝</span>
       </div>
       <div class="flex items-center gap-2">
@@ -45,9 +45,10 @@
 </template>
 
 <script setup>
-import { ref, nextTick, watch } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { sendMessage } from '../api/chat'
 import ChatBubble from './ChatBubble.vue'
+import Live2DCharacter from './Live2DCharacter.vue'
 
 const isOpen = ref(false)
 const input = ref('')
@@ -57,6 +58,11 @@ const msgContainer = ref(null)
 
 const SESSION_KEY = 'blog_chat_session'
 const MSG_KEY = 'blog_chat_messages'
+
+const lastEmotion = computed(() => {
+  const last = messages.value.filter(m => m.role === 'assistant').at(-1)
+  return last?.emotion || 'normal'
+})
 
 // 从 localStorage 恢复
 function loadHistory() {
