@@ -1,0 +1,123 @@
+# ===========================
+# Python
+# ===========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+eggs/
+*.egg
+.venv/
+venv/
+env/
+ENV/
+.eggs/
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ===========================
+# Node.js
+# ===========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm
+.yarn/
+.pnpm/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ===========================
+# Next.js / React
+# ===========================
+.next/
+out/
+.next
+
+# ===========================
+# VS Code
+# ===========================
+.vscode/settings.json
+.vscode/*.code-workspace
+
+# ===========================
+# Environment / Secrets
+# ===========================
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+*.pem
+*.key
+secrets/
+.secrets
+
+# ===========================
+# OS generated files
+# ===========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ===========================
+# IDE & Editors
+# ===========================
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+
+# ===========================
+# Build / Dist
+# ===========================
+*.tsbuildinfo
+*.log
+*.tmp
+*.temp
+.cache/
+
+# ===========================
+# Docker
+# ===========================
+.dockerignore
+docker-compose.override.yml
+
+# ===========================
+# Terraform / IaC
+# ===========================
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# ===========================
+# AI / ML
+# ===========================
+*.pth
+*.pt
+*.onnx
+*.h5
+*.keras
+wandb/
+mlruns/
