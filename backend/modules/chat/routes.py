@@ -46,9 +46,14 @@ def public_chat():
         if isinstance(h, dict) and "role" in h and "content" in h
     ]
 
-    # RAG 检索
+    # RAG 检索（失败时优雅降级）
     rag = current_app.extensions.get("rag_service")
-    rag_context = rag.build_context(message) if rag else ""
+    rag_context = ""
+    if rag:
+        try:
+            rag_context = rag.build_context(message)
+        except Exception:
+            rag_context = ""
 
     result = chat(
         message=message,
@@ -59,13 +64,16 @@ def public_chat():
         rag_context=rag_context,
     )
 
-    # 追加 sources（RAG 引用）
+    # 追加 sources
     if rag:
-        hits = rag.search(message, k=3)
-        result["sources"] = [
-            {"article_id": h["article_id"], "title": h["title"], "relevance": h["relevance"]}
-            for h in hits
-        ]
+        try:
+            hits = rag.search(message, k=3)
+            result["sources"] = [
+                {"article_id": h["article_id"], "title": h["title"], "relevance": h["relevance"]}
+                for h in hits
+            ]
+        except Exception:
+            result["sources"] = []
 
     return _ok(result)
 
@@ -88,9 +96,14 @@ def owner_chat():
         history = []
     history = [h for h in history if isinstance(h, dict) and "role" in h and "content" in h]
 
-    # RAG 检索
+    # RAG 检索（失败时优雅降级）
     rag = current_app.extensions.get("rag_service")
-    rag_context = rag.build_context(message) if rag else ""
+    rag_context = ""
+    if rag:
+        try:
+            rag_context = rag.build_context(message)
+        except Exception:
+            rag_context = ""
 
     # 好感度
     affinity_svc = current_app.extensions.get("affinity_service")
@@ -141,10 +154,13 @@ def owner_chat():
 
     # RAG sources
     if rag:
-        hits = rag.search(message, k=3)
-        result["sources"] = [
-            {"article_id": h["article_id"], "title": h["title"], "relevance": h["relevance"]}
-            for h in hits
-        ]
+        try:
+            hits = rag.search(message, k=3)
+            result["sources"] = [
+                {"article_id": h["article_id"], "title": h["title"], "relevance": h["relevance"]}
+                for h in hits
+            ]
+        except Exception:
+            result["sources"] = []
 
     return _ok(result)

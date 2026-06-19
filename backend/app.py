@@ -46,11 +46,14 @@ def create_app() -> Flask:
     loader = ArticleLoader(ARTICLES_DIR, about_file=ABOUT_FILE)
     app.extensions["article_loader"] = loader
 
-    # 初始化 RAG 知识库
-    rag = RAGService(persist_dir=CHROMA_PERSIST_DIR)
-    all_data = loader.load_all()
-    rag.index_articles(all_data["articles"])
-    app.extensions["rag_service"] = rag
+    # 初始化 RAG 知识库（embedding 不可用时优雅跳过）
+    try:
+        rag = RAGService(persist_dir=CHROMA_PERSIST_DIR)
+        all_data = loader.load_all()
+        rag.index_articles(all_data["articles"])
+        app.extensions["rag_service"] = rag
+    except Exception:
+        app.extensions["rag_service"] = RAGService(persist_dir=CHROMA_PERSIST_DIR)
 
     # 初始化好感度
     affinity = AffinityService(DATABASE_PATH)
