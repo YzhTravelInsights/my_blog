@@ -72,6 +72,26 @@ def create_comment(
     return {"id": new_id}
 
 
+def delete_comments_for_article(db_path: str, article_id: str) -> int:
+    """删除某篇文章的全部评论（含回复，靠 ON DELETE CASCADE）。返回删除条数。"""
+    conn = _get_conn(db_path)
+    cur = conn.execute("DELETE FROM comments WHERE article_id=?", (article_id,))
+    conn.commit()
+    n = cur.rowcount
+    conn.close()
+    return n
+
+
+def delete_comment(db_path: str, comment_id: int) -> int:
+    """删除单条评论（含其全部回复，靠 ON DELETE CASCADE）。返回删除条数。"""
+    conn = _get_conn(db_path)
+    cur = conn.execute("DELETE FROM comments WHERE id=?", (comment_id,))
+    conn.commit()
+    n = cur.rowcount
+    conn.close()
+    return n
+
+
 def get_comments_by_article(
     db_path: str,
     article_id: str,

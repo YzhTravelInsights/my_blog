@@ -16,6 +16,7 @@ import logging
 from openai import OpenAI
 
 from .prompt_builder import build_system_prompt
+from ..security import get_deepseek_api_key
 
 logger = logging.getLogger("chat")
 
@@ -26,7 +27,7 @@ logger = logging.getLogger("chat")
 
 def _get_client() -> OpenAI:
     return OpenAI(
-        api_key=os.getenv("DEEPSEEK_API_KEY"),
+        api_key=get_deepseek_api_key(),
         base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
     )
 

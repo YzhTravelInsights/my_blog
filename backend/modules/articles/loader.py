@@ -132,6 +132,19 @@ class ArticleLoader:
             "tags": len(self._tags),
         }
 
+    @property
+    def articles_dir(self) -> str:
+        """文章目录路径（供知识库自动更新等模块使用）。"""
+        return self._dir
+
+    def file_mtime(self, article_id: str) -> float | None:
+        """
+        返回某篇文章对应文件的最新修改时间（秒级）。
+        需先经 load_all()/get_article() 刷新缓存；文件不存在返回 None。
+        """
+        fpath = os.path.join(self._dir, article_id + ".md")
+        return self._file_mtimes.get(fpath)
+
     def get_about(self) -> dict:
         """
         加载关于页。

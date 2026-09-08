@@ -1,18 +1,32 @@
+<!--
+  评论区：玻璃表单 + 主题配色。逻辑不变。
+-->
 <template>
-  <div class="border-t border-gray-200 pt-6">
-    <h3 class="text-lg font-semibold mb-4">评论 ({{ totalCount }})</h3>
+  <div class="glass-card p-6">
+    <h3 class="text-lg font-semibold text-ink mb-4">评论 ({{ totalCount }})</h3>
 
     <!-- 发表评论 -->
-    <div class="mb-6 p-4 bg-gray-50 rounded-lg">
-      <input v-model="nickname" placeholder="昵称（选填）" class="w-full px-3 py-2 border rounded text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-blue-300" />
-      <textarea v-model="newComment" placeholder="写评论..." rows="3"
-        class="w-full px-3 py-2 border rounded text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"></textarea>
+    <div class="mb-6 p-4 rounded-xl border border-border-soft bg-surface">
+      <input
+        v-model="nickname"
+        placeholder="昵称（选填）"
+        class="glass-input mb-2"
+      />
+      <textarea
+        v-model="newComment"
+        placeholder="写评论..."
+        rows="3"
+        class="glass-input resize-none"
+      ></textarea>
       <div class="flex items-center justify-between mt-2">
-        <label class="flex items-center gap-1 text-xs text-gray-400 cursor-pointer">
-          <input type="checkbox" v-model="isPrivate" class="rounded" /> 仅博主可见
+        <label class="flex items-center gap-1 text-xs text-sub cursor-pointer">
+          <input type="checkbox" v-model="isPrivate" class="rounded accent-[var(--c-primary)]" /> 仅博主可见
         </label>
-        <button @click="submitComment(null)" :disabled="!newComment.trim() || submitting"
-          class="px-4 py-1.5 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 disabled:opacity-40">
+        <button
+          @click="submitComment(null)"
+          :disabled="!newComment.trim() || submitting"
+          class="btn-primary"
+        >
           {{ submitting ? '发送中...' : '发表' }}
         </button>
       </div>
@@ -20,8 +34,8 @@
     </div>
 
     <!-- 评论列表 -->
-    <div v-if="loading" class="text-gray-400 text-sm">加载中...</div>
-    <div v-else-if="comments.length === 0" class="text-gray-300 text-sm">暂无评论</div>
+    <div v-if="loading" class="text-sub text-sm">加载中...</div>
+    <div v-else-if="comments.length === 0" class="text-sub/60 text-sm">暂无评论</div>
     <div v-else class="space-y-3">
       <div v-for="c in comments" :key="c.id">
         <CommentNode :comment="c" :articleId="articleId" @refresh="fetchComments" />
@@ -31,7 +45,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { getComments, postComment } from '../api/comments'
 import CommentNode from './CommentNode.vue'
 
@@ -77,4 +91,18 @@ async function submitComment(parentId) {
 }
 
 onMounted(fetchComments)
+
+// 上下篇切换文章后，重新拉取该文章的评论并清空表单
+watch(
+  () => props.articleId,
+  () => {
+    comments.value = []
+    totalCount.value = 0
+    loading.value = true
+    nickname.value = ''
+    newComment.value = ''
+    errorMsg.value = ''
+    fetchComments()
+  },
+)
 </script>

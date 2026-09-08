@@ -42,6 +42,6 @@ describe('TagFilter', () => {
       props: { ...props, activeCategory: 'Python' },
     })
     const activeBtn = wrapper.findAll('button').find(b => b.text() === 'Python')
-    expect(activeBtn.classes()).toContain('bg-blue-100')
+    expect(activeBtn.classes()).toContain('bg-primary/15')
   })
 })

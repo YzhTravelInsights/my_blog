@@ -17,6 +17,10 @@ import os
 import logging
 import threading
 
+# 离线模式：模型已缓存到本地，禁止联网检查（国内 huggingface.co 访问超时）
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+
 logger = logging.getLogger("rag")
 
 # ---------------------------------------------------------------------------
@@ -47,7 +51,7 @@ def _get_model():
                 _MODEL_NAME,
                 cache_folder=_MODEL_DIR,
             )
-            logger.info(f"模型加载完成，维度: {_model.get_sentence_embedding_dimension()}")
+            logger.info(f"模型加载完成，维度: {_model.get_embedding_dimension()}")
             return _model
         except Exception as e:
             _model_available = False
@@ -121,18 +125,55 @@ class RAGService:
             logger.info("RAG: 清空旧索引，全量重建")
 
         # 找出未索引的文章
-        existing_ids = set(self._collection.get().get("ids", []))
-        new_articles = [a for a in articles if a["id"] not in existing_ids]
+        existing_ids = self._collection.get().get("ids", [])
+        new_articles = [a for a in articles if a["id"] not in set(existing_ids)]
 
         if not new_articles:
             logger.info(f"RAG: 所有 {len(articles)} 篇文章已索引，跳过")
             return
 
-        # 准备数据
-        texts = []
-        ids = []
-        metadatas = []
-        for a in new_articles:
+        self._add(new_articles)
+        logger.info(f"RAG: 索引完成，{len(new_articles)} 篇新文章")
+
+    def delete_article(self, article_id: str):
+        """
+        按文章 ID 从向量库删除（用于删除文章时的索引清理）。
+        id 不存在时静默（Chroma delete 幂等）。
+        """
+        self._ensure_collection()
+        self._collection.delete(ids=[article_id])
+        logger.info(f"RAG: 已删除文章索引 {article_id}")
+
+    def upsert_articles(self, articles: list[dict]):
+        """
+        增量更新：新增 或 覆盖（改过的）文章向量。
+        用于知识库自动更新 —— 写新文章 / 修改已有文章时调用。
+        """
+        self._ensure_collection()
+        if not articles:
+            return
+        self._add(articles, upsert=True)
+        logger.info(f"RAG: 增量更新 {len(articles)} 篇文章")
+
+    def _add(self, articles: list[dict], upsert: bool = False):
+        """把文章向量写入 Chroma（upsert=False 时 add，True 时覆盖）。"""
+        texts, ids, metadatas = self._prepare(articles)
+        logger.info(f"RAG: 正在向量化 {len(ids)} 篇文章...")
+        embeddings = _embed_texts(texts)
+        if upsert:
+            self._collection.upsert(
+                ids=ids, embeddings=embeddings, documents=texts, metadatas=metadatas
+            )
+        else:
+            self._collection.add(
+                ids=ids, embeddings=embeddings, documents=texts, metadatas=metadatas
+            )
+
+    @staticmethod
+    def _prepare(articles: list[dict]) -> tuple[list[str], list[str], list[dict]]:
+        """统一构建向量化文本 / id / metadata。"""
+        texts, ids, metadatas = [], [], []
+        for a in articles:
             # 向量化文本 = title + summary + content（截断控制 token）
             text = f"{a['title']}\n{a['summary']}\n{a['content'][:2000]}"
             texts.append(text)
@@ -143,19 +184,7 @@ class RAGService:
                 "tags": ",".join(a.get("tags", [])),
                 "article_id": a["id"],
             })
-
-        # 批量嵌入
-        logger.info(f"RAG: 正在向量化 {len(new_articles)} 篇文章...")
-        embeddings = _embed_texts(texts)
-
-        # 存入 Chroma
-        self._collection.add(
-            ids=ids,
-            embeddings=embeddings,
-            documents=texts,
-            metadatas=metadatas,
-        )
-        logger.info(f"RAG: 索引完成，{len(new_articles)} 篇新文章")
+        return texts, ids, metadatas
 
     # -------------------------------------------------------------------
     # 检索
@@ -228,3 +257,8 @@ class RAGService:
             "indexed_articles": len(data.get("ids", [])),
             "persist_dir": self._persist_dir,
         }
+
+    def indexed_ids(self) -> set[str]:
+        """返回已索引的文章 ID 集合（用于增量判断哪些是新文章）。"""
+        self._ensure_collection()
+        return set(self._collection.get().get("ids", []))

@@ -1,43 +1,84 @@
+<!--
+  萤宝聊天组件。逻辑零改动，仅视觉换主题：
+  悬浮气泡 + 玻璃聊天窗 + 萤火绿主色。
+-->
 <template>
-  <!-- 默认折叠：圆形图标 -->
-  <div v-if="!isOpen" @click="open" class="fixed bottom-5 right-5 w-14 h-14 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center shadow-lg cursor-pointer transition-all hover:scale-110 z-50" title="和萤宝聊天">
-    <span class="text-2xl">🔆</span>
+  <!-- 萤宝 3D 角色（始终可见） -->
+  <div
+    v-if="!chatVisible"
+    class="fixed bottom-5 right-5 z-50 flex flex-col items-end"
+  >
+    <div
+      class="w-24 h-24 rounded-full overflow-hidden shadow-glow cursor-pointer
+             ring-2 ring-primary/50 ring-offset-2 ring-offset-[var(--bg-base)]
+             transition-transform hover:scale-110 active:scale-95"
+      @click="openChat"
+    >
+      <Live2DCharacter :emotion="lastEmotion" size="large" ref="charRef" />
+    </div>
   </div>
 
   <!-- 展开：聊天窗 -->
-  <div v-else class="fixed bottom-5 right-5 w-80 sm:w-96 h-[500px] bg-white rounded-xl shadow-2xl flex flex-col z-50 border border-gray-200 overflow-hidden">
+  <div
+    v-else
+    class="fixed bottom-5 right-5 w-80 sm:w-96 h-[520px] rounded-2xl shadow-glow-lg flex flex-col z-50 border border-border-soft overflow-hidden"
+    :style="{ background: 'color-mix(in srgb, var(--bg-base) 97%, transparent)' }"
+  >
+    <!-- 3D 模型展示区 -->
+    <div
+      class="model-viewer w-full h-36 flex items-center justify-center overflow-hidden shrink-0"
+      :style="{ background: 'linear-gradient(180deg, color-mix(in srgb, var(--c-primary) 18%, transparent), transparent)' }"
+    >
+      <Live2DCharacter :emotion="lastEmotion" />
+    </div>
+
     <!-- 头部 -->
-    <div class="flex items-center justify-between px-4 py-3 bg-blue-500 text-white">
+    <div
+      class="flex items-center justify-between px-4 py-2 shrink-0"
+      :style="{ background: 'linear-gradient(135deg, var(--c-primary), var(--c-star))', color: '#0b1f16' }"
+    >
+      <span class="font-semibold text-sm">✨ 萤宝</span>
       <div class="flex items-center gap-2">
-        <Live2DCharacter :emotion="lastEmotion" />
-        <span class="font-semibold text-sm">萤宝</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <button @click="exportChat" title="导出对话" class="text-white/80 hover:text-white text-xs">⬇</button>
-        <button @click="close" class="text-white/80 hover:text-white text-lg leading-none">&times;</button>
+        <button @click="exportChat" title="导出对话" class="opacity-70 hover:opacity-100 text-sm transition-opacity">⬇</button>
+        <button @click="close" class="opacity-70 hover:opacity-100 text-lg leading-none transition-opacity">&times;</button>
       </div>
     </div>
 
     <!-- 消息区 -->
-    <div ref="msgContainer" class="flex-1 overflow-y-auto px-3 py-3 space-y-3 bg-gray-50">
-      <div v-if="messages.length === 0" class="text-center text-gray-300 text-sm mt-20">
+    <div ref="msgContainer" class="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+      <div v-if="messages.length === 0" class="text-center text-sub/50 text-sm mt-20">
         萤宝在等你哦～
       </div>
-      <ChatBubble v-for="(m, i) in messages" :key="i" :role="m.role" :content="m.content" :emotion="m.emotion" />
-      <div v-if="typing" class="text-gray-400 text-xs pl-2">萤宝思考中...</div>
+      <ChatBubble
+        v-for="(m, i) in messages"
+        :key="i"
+        :role="m.role"
+        :content="m.content"
+        :emotion="m.emotion"
+      />
+      <div v-if="typing" class="text-sub text-xs pl-2">
+        <span class="typing-dot" /> <span class="typing-dot" style="animation-delay:0.15s" /> <span class="typing-dot" style="animation-delay:0.3s" />
+      </div>
     </div>
 
-    <!-- 提示 -->
-    <div class="text-center text-gray-300 text-[10px] py-1 bg-gray-50">
-      对话记录保存在本地浏览器中，清除缓存会丢失
+    <div class="text-center text-sub/50 text-[10px] py-1 shrink-0">
+      对话保存在本地浏览器
     </div>
 
     <!-- 输入区 -->
-    <div class="flex items-center gap-2 px-3 py-2 border-t border-gray-200 bg-white">
-      <input v-model="input" @keyup.enter="send" placeholder="和萤宝聊天..."
-        class="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300" />
-      <button @click="send" :disabled="!input.trim() || typing"
-        class="px-3 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 disabled:opacity-40 transition-colors">
+    <div class="flex items-center gap-2 px-3 py-2 border-t border-border-soft shrink-0">
+      <input
+        v-model="input"
+        @keyup.enter="send"
+        placeholder="和萤宝聊天..."
+        ref="inputRef"
+        class="glass-input flex-1 py-1.5"
+      />
+      <button
+        @click="send"
+        :disabled="!input.trim() || typing"
+        class="btn-primary px-3 py-1.5"
+      >
         发送
       </button>
     </div>
@@ -45,26 +86,42 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { sendMessage } from '../api/chat'
 import ChatBubble from './ChatBubble.vue'
 import Live2DCharacter from './Live2DCharacter.vue'
 
-const isOpen = ref(false)
+const chatVisible = ref(false)
 const input = ref('')
 const typing = ref(false)
 const messages = ref([])
 const msgContainer = ref(null)
+const inputRef = ref(null)
+const charRef = ref(null)
 
 const SESSION_KEY = 'blog_chat_session'
 const MSG_KEY = 'blog_chat_messages'
 
 const lastEmotion = computed(() => {
-  const last = messages.value.filter(m => m.role === 'assistant').at(-1)
+  const last = messages.value.filter((m) => m.role === 'assistant').at(-1)
   return last?.emotion || 'normal'
 })
 
-// 从 localStorage 恢复
+// ---------- 问候语 ----------
+const GREETINGS = [
+  '你好呀，开拓者～',
+  '嘿！萤宝在这里哦！',
+  '嘿嘿，你来啦～',
+  '开拓者今天过得怎么样？',
+  '萤宝等你很久了呢～',
+  '哇，是开拓者！',
+]
+
+function randomGreeting() {
+  return GREETINGS[Math.floor(Math.random() * GREETINGS.length)]
+}
+
+// ---------- 本地存储 ----------
 function loadHistory() {
   try {
     const saved = localStorage.getItem(MSG_KEY)
@@ -87,6 +144,44 @@ function getSessionId() {
   return sid
 }
 
+// ---------- 打开聊天 ----------
+async function openChat() {
+  chatVisible.value = true
+  loadHistory()
+
+  // 首次打开：自动发问候
+  if (messages.value.length === 0) {
+    await autoGreet()
+  }
+
+  await nextTick()
+  scrollBottom()
+  inputRef.value?.focus()
+}
+
+async function autoGreet() {
+  typing.value = true
+  try {
+    const res = await sendMessage({
+      message: '萤宝你好',
+      session_id: getSessionId(),
+      history: [],
+      session_type: 'guest',
+    })
+    if (res.code === 0) {
+      const d = res.data
+      messages.value.push({ role: 'assistant', content: d.reply, emotion: d.emotion, sources: d.sources })
+    } else {
+      messages.value.push({ role: 'assistant', content: randomGreeting(), emotion: 'happy' })
+    }
+  } catch {
+    messages.value.push({ role: 'assistant', content: randomGreeting(), emotion: 'happy' })
+  }
+  typing.value = false
+  saveHistory()
+}
+
+// ---------- 发送 ----------
 async function send() {
   const text = input.value.trim()
   if (!text || typing.value) return
@@ -96,19 +191,23 @@ async function send() {
   typing.value = true
   scrollBottom()
 
-  const res = await sendMessage({
-    message: text,
-    session_id: getSessionId(),
-    history: messages.value.slice(-20).map(m => ({ role: m.role, content: m.content })),
-    session_type: 'guest',
-  })
-
-  typing.value = false
-  if (res.code === 0) {
-    const d = res.data
-    messages.value.push({ role: 'assistant', content: d.reply, emotion: d.emotion, sources: d.sources })
-  } else {
-    messages.value.push({ role: 'assistant', content: '唔…萤宝暂时没法回应，稍后再试试吧', emotion: 'normal' })
+  try {
+    const res = await sendMessage({
+      message: text,
+      session_id: getSessionId(),
+      history: messages.value.slice(-20).map((m) => ({ role: m.role, content: m.content })),
+      session_type: 'guest',
+    })
+    typing.value = false
+    if (res.code === 0) {
+      const d = res.data
+      messages.value.push({ role: 'assistant', content: d.reply, emotion: d.emotion, sources: d.sources })
+    } else {
+      messages.value.push({ role: 'assistant', content: '唔…萤宝暂时没法回应', emotion: 'normal' })
+    }
+  } catch {
+    typing.value = false
+    messages.value.push({ role: 'assistant', content: '唔…萤宝暂时没法回应', emotion: 'normal' })
   }
   saveHistory()
   scrollBottom()
@@ -128,13 +227,23 @@ function scrollBottom() {
   })
 }
 
-function open() {
-  isOpen.value = true
-  loadHistory()
-  scrollBottom()
-}
-
 function close() {
-  isOpen.value = false
+  chatVisible.value = false
 }
 </script>
+
+<style scoped>
+.typing-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 3px;
+  border-radius: 999px;
+  background: var(--c-primary-deep);
+  animation: typing-bounce 0.9s ease-in-out infinite;
+}
+@keyframes typing-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-4px); opacity: 1; }
+}
+</style>
