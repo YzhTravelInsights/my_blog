@@ -1,0 +1,50 @@
+# myblog systemd 服务单元
+# 安装位置：/etc/systemd/system/blog.service
+#
+# 说明：
+#   - 以非 root 的 blog 用户运行，代码在 /home/blog/my_blog
+#   - gunicorn 只监听 127.0.0.1:5000，对外由 Nginx 反代
+#   - 单 worker（见 backend/gunicorn_config.py 里的内存取舍说明）
+
+[Unit]
+Description=myblog (Flask + Gunicorn + 流萤 RAG)
+Documentation=https://github.com/YzhTravelInsights/my_blog
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=blog
+Group=blog
+WorkingDirectory=/home/blog/my_blog/backend
+
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+# 本地 embedding 模型已随部署预置，强制离线避免联网检查卡住启动
+Environment=TRANSFORMERS_OFFLINE=1
+Environment=HF_HUB_OFFLINE=1
+Environment=OMP_NUM_THREADS=2
+Environment=TOKENIZERS_PARALLELISM=false
+
+ExecStart=/home/blog/my_blog/backend/venv/bin/gunicorn \
+    --config /home/blog/my_blog/backend/gunicorn_config.py \
+    wsgi:app
+
+Restart=always
+RestartSec=5
+# 首次加载模型较慢，给足启动时间
+TimeoutStartSec=180
+TimeoutStopSec=30
+KillMode=mixed
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=myblog
+
+# 基本加固（仍保留对 /home/blog/my_blog 的写权限，用于发文章/写日志）
+NoNewPrivileges=true
+PrivateTmp=true
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

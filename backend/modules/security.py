@@ -13,11 +13,18 @@ API 密钥安全模块（Windows DPAPI）
 
 向后兼容：若 .env 里仍是旧版明文 DEEPSEEK_API_KEY（如测试环境），
 仍会原样读取，保证测试与未加密部署可用。
+
+Linux / 跨平台说明：
+    - DPAPI 仅存在于 Windows；本模块在非 Windows 上可正常 import，
+      但 encrypt_secret / decrypt_secret 会抛 RuntimeError。
+    - 因此 get_api_key() 在 Linux 上会自动回退读取明文 DEEPSEEK_API_KEY
+      （部署到 Linux 服务器时用这种方式配置，见 README 部署章节）。
+    - 注意 ctypes.wintypes 在 Linux 上 import 即报错（"_type_ 'v' not supported"），
+      故此处只用 ctypes.c_uint32 表达 DWORD，不 import ctypes.wintypes。
 """
 
 import base64
 import ctypes
-import ctypes.wintypes
 import logging
 import os
 
@@ -28,8 +35,9 @@ _DECRYPT_CACHE: dict[str, str] = {}
 
 
 class _DATA_BLOB(ctypes.Structure):
+    # DWORD：用 c_uint32 而非 ctypes.wintypes.DWORD，避免在 Linux 上必须 import wintypes
     _fields_ = [
-        ("cbData", ctypes.wintypes.DWORD),
+        ("cbData", ctypes.c_uint32),
         ("pbData", ctypes.POINTER(ctypes.c_char)),
     ]
 

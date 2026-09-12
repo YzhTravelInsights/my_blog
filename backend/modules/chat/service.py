@@ -17,8 +17,17 @@ from openai import OpenAI
 
 from .prompt_builder import build_system_prompt
 from ..security import get_deepseek_api_key
+from ..quota.service import get_quota_service, QUOTA_REPLY
 
 logger = logging.getLogger("chat")
+
+
+def _record_usage(scope: str, resp):
+    """记录 token 用量与花费（scope: guest / owner）。记不上也不影响对话。"""
+    try:
+        get_quota_service().record(scope, getattr(resp, "usage", None))
+    except Exception as e:  # noqa: BLE001 —— 记账失败绝不能影响对话
+        logger.warning(f"用量记录失败: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -100,6 +109,22 @@ def chat(
     messages.extend(history)
     messages.append({"role": "user", "content": message})
 
+    # ---- 每日额度：访客超限直接回绝，不再调用 DeepSeek（零成本）----
+    # 博主本人（mode="owner"）不受限额约束，只记账不拦截。
+    if mode != "owner":
+        try:
+            if get_quota_service().guest_exhausted():
+                logger.info(f"chat quota exhausted | guest | {session_id}")
+                return {
+                    "reply": QUOTA_REPLY,
+                    "emotion": "normal",
+                    "mode": mode,
+                    "fallback": True,
+                    "quota_exhausted": True,
+                }
+        except Exception as e:  # noqa: BLE001 —— 额度查询异常不能挡住正常聊天
+            logger.warning(f"额度检查失败，放行本次对话: {e}")
+
     # 调用 DeepSeek
     start = time.time()
     try:
@@ -113,6 +138,7 @@ def chat(
         )
         reply = resp.choices[0].message.content or ""
         emotion = _detect_emotion(reply)
+        _record_usage("owner" if mode == "owner" else "guest", resp)
 
         # 记录成功日志（可选）
         elapsed = (time.time() - start) * 1000
@@ -151,6 +177,7 @@ def judge_memory(user_msg: str, assistant_reply: str) -> dict:
             ],
             max_tokens=150, temperature=0.3,
         )
+        _record_usage("owner", resp)
         return json.loads(resp.choices[0].message.content)
     except Exception:
         return {"memorable": False, "text": "", "importance": 0}
@@ -168,6 +195,7 @@ def judge_impression(user_msg: str, assistant_reply: str) -> str | None:
             ],
             max_tokens=80, temperature=0.5,
         )
+        _record_usage("owner", resp)
         return resp.choices[0].message.content.strip()
     except Exception:
         return None

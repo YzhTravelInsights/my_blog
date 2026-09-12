@@ -84,6 +84,7 @@ def summary():
     rag = app.extensions.get("rag_service")
     affinity_svc = app.extensions.get("affinity_service")
     memory_svc = app.extensions.get("memory_service")
+    quota_svc = app.extensions.get("quota_service")
     started_at = app.extensions.get("_started_at")
 
     # ---- 文章全量（缓存带 mtime 检查，仅在管理页读取）----
@@ -208,6 +209,8 @@ def summary():
             "db_size": db_size,
             "db_size_text": _format_size(db_size),
             "api_error_log": API_ERROR_LOG,
+            # 每日 API 花费限额：访客额度 / 主人用量 / 历史记录
+            "quota": quota_svc.summary() if quota_svc else {},
         },
     })
 

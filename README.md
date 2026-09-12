@@ -17,6 +17,7 @@
 | 💖 好感度系统 | 互动次数自动升级：陌生人 → 熟人 → 挚友 → 羁绊 |
 | 🧠 长期记忆 | Chroma 向量存储 + DeepSeek 判断重要性，最多 500 条 |
 | 🎭 人格演化 | 每次主人对话生成印象，权重随时间衰减，影响后续对话 |
+| 💸 每日限额 | 访客聊天按天计费封顶（默认 1 元/天），超了自动回绝；博主本人不受限 |
 | 🗣 评论系统 | 文章评论、嵌套回复（SQLite） |
 | 🧚 3D 虚拟人 | 右下角 Three.js 渲染 GLB 模型，程序化呼吸 / 摇摆 / 浮动 / 情绪动画 + 问候气泡 |
 | 👤 主人专属功能 | 独立私聊页 `/chat`、管理后台 `/admin`、在线发布文章 `/write`；URL 令牌自动登录，访客完全看不到入口、体验不变 |
@@ -63,6 +64,7 @@ myblog/
 │   │   ├── affinity/           # 好感度
 │   │   ├── memory/             # 长期记忆
 │   │   ├── personality/        # 人格演化
+│   │   ├── quota/              # 每日 API 花费限额（访客限额，主人豁免）
 │   │   ├── admin/              # 管理后台 API（summary / 发布文章）
 │   │   ├── auth.py             # 主人鉴权中间件
 │   │   ├── security.py         # DeepSeek API Key 加密/解密（DPAPI，进程内缓存）
@@ -126,12 +128,33 @@ npm run dev           # 监听 http://localhost:3000，自动代理 /api 到后�
 | `DEEPSEEK_API_KEY_ENC` | ✅ | DeepSeek API Key 的**加密密文**（Windows DPAPI 加密，明文不落盘） |
 | `DEEPSEEK_BASE_URL` | 可选 | DeepSeek API 地址，默认 `https://api.deepseek.com` |
 | `OWNER_SECRET` | 主人模式必填 | 主人模式鉴权密钥，通过 `Authorization: Bearer <OWNER_SECRET>` 调用 `/api/chat/owner` |
+| `QUOTA_DAILY_CNY` | 可选 | 访客每天最多花多少钱（元），默认 `1.0`；`0` 或负数 = 不限制。主人不受此限制 |
+| `DEEPSEEK_PRICE_INPUT_MISS` | 可选 | 输入单价（元/百万 token，缓存未命中），默认 `2.0` |
+| `DEEPSEEK_PRICE_INPUT_HIT` | 可选 | 输入单价（元/百万 token，缓存命中），默认 `0.5` |
+| `DEEPSEEK_PRICE_OUTPUT` | 可选 | 输出单价（元/百万 token），默认 `8.0` |
 | `FLASK_ENV` | 可选 | `development` / `production` |
 
 > **API Key 加密存储**：`backend/.env` 只保存 `DEEPSEEK_API_KEY_ENC`（base64 密文），
 > 由 `modules/security.py` 在**进程内解密一次并缓存**，明文不落盘 / 不进 Git / 不打日志。
 > 生成密文：`python -c "from modules.security import encrypt_secret; print(encrypt_secret('sk-你的key'))"`
 > （加密绑定当前 Windows 用户，换机器/用户需重新生成）。密钥只存在于后端，不出现在前端代码中。
+
+---
+
+## 每日 API 花费限额
+
+访客聊天会真实消耗 DeepSeek 额度，所以默认**按天封顶 1 元**；博主本人走主人模式，**完全不受限**。
+
+- **计价**：每次调用记录 `usage` 里的 token 数，按「缓存未命中输入 / 缓存命中输入 / 输出」三档单价折算人民币，
+  写入 SQLite 的 `usage_daily` 表（按「日期 + 身份」聚合，一天一行）。
+- **拦截点**：额度用尽后后端**不再调用 DeepSeek**，直接返回一句友好提示
+  （`fallback: true, quota_exhausted: true`），成本为零。
+- **主人豁免**：`/api/chat/owner`（以及主人模式下的记忆/人格判断）照样记账，方便你知道自己花了多少，但**永不拦截**。
+- **调整**：改 `.env` 的 `QUOTA_DAILY_CNY` 即可，设 `0` 关闭限额。
+- **查看**：管理后台 `GET /api/admin/summary` → `system.quota`，含今日访客花费、剩余额度、主人花费与最近 14 天记录。
+
+> 单价默认取 DeepSeek `deepseek-chat` 官方价（输入 2 元/百万、缓存命中 0.5 元/百万、输出 8 元/百万）。
+> 换模型或官方调价时用 `DEEPSEEK_PRICE_*` 覆盖即可，不必改代码。
 
 ---
 
@@ -199,7 +222,7 @@ https://你的域名/#/write?owner_token=你的密钥     # 发布文章
 | GET | `/api/articles/<id>` | 无 | 文章详情 |
 | GET | `/api/about` | 无 | 关于页内容 |
 | GET / POST | `/api/comments` | 无 | 评论列表 / 发表评论 |
-| POST | `/api/chat` | 无 | 公开聊天（guest，截断历史，固定「陌生人」好感度） |
+| POST | `/api/chat` | 无 | 公开聊天（guest，截断历史，固定「陌生人」好感度；超出每日额度时返回 `quota_exhausted`） |
 | POST | `/api/chat/owner` | Bearer `OWNER_SECRET` | 主人聊天（启用好感度 / 记忆 / 人格全链路，并写入状态） |
 | GET | `/api/admin/summary` | Bearer `OWNER_SECRET` | 管理后台汇总：内容统计（含分类/标签计数、最近文章/评论/印象）+ 系统运行信息 |
 | POST | `/api/admin/article` | Bearer `OWNER_SECRET` | 主人发布文章：写 md 文件并立即入知识库（标题/分类/标签/正文） |
@@ -228,6 +251,8 @@ cd frontend && npm run test
 ## 相关文档
 
 - [技术设计文档](文档/技术设计文档.md) — 完整架构设计（v1.3，12 个模块已整合）
+- [部署指南](文档/部署指南.md) — 阿里云 ECS 部署步骤、限额配置与故障排查
+- [部署记录](文档/部署记录.md) — 2026-09-12 上线记录与踩坑复盘
 - [Live2D 模型接入指南](文档/Live2D模型接入指南.md) — 虚拟人模型获取与接入说明
 - [主人专属访问指南](文档/主人专属访问指南.md) — 私聊 / 管理后台 / 发布文章 的钥匙访问方法
 

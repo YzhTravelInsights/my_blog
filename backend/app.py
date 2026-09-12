@@ -31,6 +31,8 @@ from modules.affinity.service import AffinityService
 from modules.memory.service import MemoryService
 from modules.personality.models import init_table as init_personality
 from modules.personality.service import PersonalityService
+from modules.quota.models import init_table as init_quota
+from modules.quota.service import get_quota_service
 from modules.admin.routes import admin_bp
 
 
@@ -50,6 +52,7 @@ def create_app() -> Flask:
     init_db(DATABASE_PATH)
     init_affinity(DATABASE_PATH)
     init_personality(DATABASE_PATH)
+    init_quota(DATABASE_PATH)
 
     # 注册 ArticleLoader 为扩展单例
     loader = ArticleLoader(ARTICLES_DIR, about_file=ABOUT_FILE)
@@ -89,6 +92,9 @@ def create_app() -> Flask:
     # 初始化人格演化
     personality = PersonalityService(DATABASE_PATH)
     app.extensions["personality_service"] = personality
+
+    # 每日 API 花费限额（访客限额，主人豁免）
+    app.extensions["quota_service"] = get_quota_service()
 
     # 注册 Blueprint
     app.register_blueprint(articles_bp)
