@@ -8,7 +8,7 @@
       <img src="/firefly-banner-1.jpg" alt="流萤" class="w-full h-44 md:h-56 object-cover" />
       <div class="px-6 py-4 border-t border-border-soft flex items-center gap-2 text-xs text-sub">
         <span>✨</span>
-        <span>把星辰装进代码里</span>
+        <span>{{ site.slogan }}</span>
       </div>
     </div>
 
@@ -25,6 +25,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { getAbout } from '../api/articles'
+import { site } from '../config/site'
 import { marked } from 'marked'
 
 const about = ref(null)

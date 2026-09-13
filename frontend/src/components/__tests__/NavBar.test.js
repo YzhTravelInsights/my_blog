@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import NavBar from '../NavBar.vue'
+import { site } from '../../config/site'
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 const TOKEN_KEY = 'blog_owner_token'
@@ -21,11 +22,11 @@ describe('NavBar', () => {
     localStorage.clear()
   })
 
-  it('渲染品牌名「流萤小筑」', () => {
+  it('渲染品牌名（取自 site 配置，改名不会让用例失效）', () => {
     const wrapper = mount(NavBar, {
       global: { plugins: [router] },
     })
-    expect(wrapper.text()).toContain('流萤小筑')
+    expect(wrapper.text()).toContain(site.name)
   })
 
   it('包含首页链接', () => {
