@@ -121,6 +121,6 @@ avatar: "/static/avatar.jpg"
 ## 联系方式
 
 - GitHub：[YzhTravelInsights](https://github.com/YzhTravelInsights)
-- 邮箱：yzh0715@163.com
+- 邮箱：yanzhihao0715@163.com
 - QQ：2414857241
 - 微信：xwnkxjh_wadr

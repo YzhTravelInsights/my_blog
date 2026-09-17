@@ -34,7 +34,7 @@ export const site = {
     { name: 'QQ', icon: 'qq', url: '', copy: '2414857241', toast: '已复制 QQ 号：2414857241', title: 'QQ：2414857241' },
     { name: '微信', icon: 'wechat', url: '', copy: 'xwnkxjh_wadr', toast: '已复制微信号：xwnkxjh_wadr', title: '微信：xwnkxjh_wadr' },
     { name: 'GitHub', icon: 'github', url: 'https://github.com/YzhTravelInsights', title: 'GitHub：YzhTravelInsights' },
-    { name: '邮箱', icon: 'mail', url: 'mailto:yzh0715@163.com', copy: 'yzh0715@163.com', toast: '已复制邮箱：yzh0715@163.com', title: '邮箱：yzh0715@163.com' },
+    { name: '邮箱', icon: 'mail', url: 'mailto:yanzhihao0715@163.com', copy: 'yanzhihao0715@163.com', toast: '已复制邮箱：yanzhihao0715@163.com', title: '邮箱：yanzhihao0715@163.com' },
   ],
 
   /**
